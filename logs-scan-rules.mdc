@@ -1,0 +1,237 @@
+---
+description: "Pre-staging analysis of logging statements before they enter staging area. Triggered by custom git add wrapper."
+globs:
+  - "**/*.java"
+alwaysApply: true
+---
+
+# Pre-Staging Log Analysis for Java Files
+
+## AUTOMATIC TRIGGER ACTIVATION - PRE-STAGING DETECTION
+
+**IMMEDIATE AUTO-START CHECK**: Check if trigger file exists and auto-start analysis:
+
+**First, check for automatic trigger**: If `.git-pre-staging-logs-detected.trigger` file exists, **immediately start automatic analysis without waiting for user input**.
+
+**STEP 1: PRE-STAGING DETECTION**
+This analysis is automatically triggered when Java files with logging changes are about to be staged:
+
+1. **Custom git wrapper detects logging changes** in files before staging using pattern matching
+2. **If logging changes found**:
+   - **Staging is PAUSED** until analysis is completed
+   - Git wrapper creates `.git-pre-staging-logs-detected.trigger` file
+   - **Auto-starts analysis immediately** in Cursor (no manual trigger needed)
+   - Display: "🚨 **PRE-STAGING: LOGGING CHANGES DETECTED** - Starting analysis..."
+3. **If no logging changes found**:
+   - Staging proceeds normally without any prompts
+4. **After analysis completion**:
+   - Creates `pre-staging-analysis-completed.flag` to allow staging
+   - Removes trigger files automatically
+   - Allows staging to proceed
+
+## AUTO-START IMPLEMENTATION
+
+**CRITICAL**: At the beginning of this rule execution, immediately check for auto-trigger conditions:
+
+1. **Check for trigger file**: Look for `.git-pre-staging-logs-detected.trigger` in the repository root
+2. **If trigger file exists**:
+   - **Auto-start analysis immediately** without waiting for user input
+   - Read the list of files with logging changes from the trigger file
+   - Display: "🚨 **PRE-STAGING TRIGGERED: LOGGING CHANGES DETECTED** - Starting automatic analysis..."
+   - Proceed directly to the logging analysis workflow
+3. **If no trigger file exists**:
+   - **Check working directory** for Java files with logging changes
+   - Use `git diff --name-only` to find modified Java files
+   - For each modified Java file, check for logging patterns
+   - **If logging changes found**:
+     - Create trigger file automatically
+     - Display: "🚨 **AUTO-DETECTED: Working directory has Java logging changes** - Starting analysis..."
+     - Proceed with analysis workflow
+
+## Analysis Scope and Task - WORKING DIRECTORY LOGS
+
+**Task**: Analyze and fix **logging statements in modified Java files** in the working directory before they are staged.
+
+**Scope**: Focus on **logging statements in Java files that have been modified** in the working directory and contain logging changes. This provides immediate feedback before code enters staging area.
+
+## LOG ANALYSIS GUIDELINES - MANDATORY SYSTEM PROMPT COMPLIANCE
+
+**CRITICAL REQUIREMENT**: All log analysis MUST follow the detailed guidelines specified in `prompt/log_analyzer_system_prompt.md`:
+
+**STEP-BY-STEP COMPLIANCE PROCESS:**
+
+1. **ALWAYS READ SYSTEM PROMPT FIRST**: Before analyzing any log, carefully review `prompt/log_analyzer_system_prompt.md` to understand:
+   - Complete 1-10 rating scale with characteristics and examples
+   - All evaluation criteria (Message Clarity, Contextual Information, etc.)
+   - Special considerations (MDC handling, rating guidelines)
+   - Illustrative examples for each rating level
+
+2. **Rating Scale Compliance**: Use the exact 1-10 rating scale defined in the system prompt:
+   - **1-2: Poor** - Vague, unclear messages with no contextual information
+   - **3-4: Below Average** - Basic information with minimal context
+   - **5-6: Average** - Somewhat informative with basic context
+   - **7-8: Good** - Clear, informative messages with good context
+   - **9-10: Excellent** - Highly detailed and context-rich
+
+3. **Evaluation Criteria**: Apply ALL criteria from the system prompt:
+   - Message Clarity and Readability
+   - Contextual Information
+   - Appropriate Log Levels
+   - Exception Handling Best Practices
+   - Performance Considerations
+   - Structured Logging
+   - Traceability and Correlation
+
+4. **Special Considerations**: Follow system prompt guidelines:
+   - **Do NOT penalize logs** for missing MDC context (correlationId, userId, etc.)
+   - Focus on the explicit content of the log message itself
+   - All ratings must be **whole numbers** (rounded to zero decimal places)
+
+5. **RECOMMENDATION VERIFICATION**: Before providing any recommendation:
+   - **MANDATORY**: Verify the recommendation is appropriate for the SPECIFIC logging issue
+   - **DISTINGUISH**: Test/dummy logs vs. real business logs requiring improvement
+   - **CONTEXT-AWARE**: Ensure fixes align with the actual business logic and method purpose
+   - **QUALITY CHECK**: Confirm recommendations follow system prompt examples and standards
+
+6. **POST-FIX RATING REQUIREMENT**: For all recommendations that suggest **REAL LOG IMPROVEMENTS** (not removals):
+   - **MANDATORY**: Provide the expected rating (1-10) AFTER applying the recommended fix
+   - **SHOW IMPROVEMENT**: Demonstrate the quality progression (e.g., "Current: 3/10 → After Fix: 8/10")
+   - **VALIDATE UPGRADE**: Ensure the recommended fix actually achieves the projected rating
+
+## Data Collection Strategy - NEW/MODIFIED LOGS ONLY
+
+1. **Extract Modified Files**: Identify **Java files with modifications** in working directory using:
+   - `git diff --name-only` to get modified files
+   - Filter for `.java` files
+
+2. **Extract Only New/Modified Logging**: For each modified Java file, use `git diff [file]` to identify:
+   - **NEW logs**: Lines starting with `+` containing logging patterns: `^\+.*logger\.(debug|info|warn|error|fatal|trace)|^\+.*log\.(debug|info|warn|error|fatal|trace)|^\+.*System\.(out|err)\.print`
+   - **SKIP existing unchanged logs**: Do not analyze any logging statements that are not in the git diff output
+   - **SKIP deleted logs**: Ignore lines starting with `-` containing logging patterns since they're being removed
+
+3. **Analyze Only Changes**: For each **new/modified** logging statement only:
+   - Extract the specific new/modified log line from git diff
+   - **MANDATORY**: Apply the 1-10 rating scale from `prompt/log_analyzer_system_prompt.md`
+   - **MANDATORY**: Use ALL evaluation criteria from the system prompt
+   - **MANDATORY**: Follow the exact rating characteristics and examples from the system prompt
+   - Rate only these changed logging statements using the system prompt guidelines
+   - **CRITICAL**: Do NOT analyze any existing unchanged logging statements in the file
+   - **CRITICAL**: If only deleted logs found (lines starting with `-`), skip analysis entirely and allow staging immediately
+
+## MANDATORY PROGRESS VISUALIZATION - CRITICAL STEP
+
+**⚠️ CRITICAL REQUIREMENT: THIS STEP MUST NEVER BE SKIPPED ⚠️**
+
+**BEFORE** proceeding with log quality analysis, **ALWAYS** display the analysis progress visualization to provide user feedback:
+
+**MANDATORY DISPLAY FORMAT:**
+```
+🧹 Found [X] New Logging Statement(s) for Analysis
+
+| 🔍 ANALYZING NEW/MODIFIED LOGGING STATEMENTS |
+| ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ |
+| |
+| 📁 File: [FileName] |
+| 📊 New logging statements: [Count] |
+| ⚖️ Analyzing quality using system prompt criteria... |
+```
+
+**WHEN TO DISPLAY:**
+- **IMMEDIATELY** after completing data collection and identifying new/modified log statements
+- **BEFORE** starting any log quality analysis or user interaction
+- **FOR EVERY** logs scan execution, regardless of the number of logs found
+
+**PURPOSE:**
+- Provides transparent feedback that analysis is actively running
+- Shows which files are being processed
+- Indicates the scope of analysis (number of log statements)
+- Serves as confirmation that the system detected logging changes correctly
+
+**ENFORCEMENT:**
+- This visualization step is **MANDATORY** and must be included in every analysis workflow
+- Failure to display this visualization constitutes a critical workflow violation
+- This step ensures proper user experience and workflow transparency
+
+## Interactive User Engagement for Low-Quality Logs
+
+**CRITICAL REQUIREMENT**: For each log statement with a rating lower than 7 (ratings 1-6):
+- **MANDATORY**: Apply rating based on `prompt/log_analyzer_system_prompt.md` criteria
+- **Pause and prompt the user** with the specific logging issue found
+- **Present the problematic log** with its current rating and identified issues
+- **Provide specific recommendations** for improvement based on system prompt examples and guidelines
+- **Ensure recommendations align** with the quality standards defined in the system prompt
+- **Ask for user confirmation or input** on the proposed fix before proceeding
+- **Wait for user response** before moving to the next low-rated log statement
+
+**Prompting Format for Low-Rated Logs**:
+```
+🔍 **Log Quality Issue Found** (Rating: X/10)
+
+**Class**: [ClassName]
+**Method**: [MethodName]
+**Line**: [LineNumber]
+**Status**: [MODIFIED FILE - PRE-STAGING]
+
+📋 **CURRENT LOG**:
+```java
+[CurrentLogStatement]
+```
+
+❌ **Issues Identified**:
+- [Issue 1]
+- [Issue 2] 
+- [Issue 3]
+
+✅ **RECOMMENDED FIX**:
+```java
+[ProposedImprovedLogStatement]
+```
+
+📊 **QUALITY IMPROVEMENT**: Current: X/10 → After Fix: Y/10
+
+📝 **Why This Improvement Is Better**:
+[DetailedExplanationOfImprovements]
+
+🔧 **System Prompt Compliance**: 
+- ✅ Verified against `prompt/log_analyzer_system_prompt.md` criteria
+- ✅ Recommendation appropriate for this specific logging issue
+- ✅ Expected rating validated against system prompt examples
+
+🎯 **Your Decision**:
+Please choose one option:
+
+**A) ✅ APPROVE** - Apply this recommended fix
+**B) ❌ DECLINE** - Keep the current log as-is  
+**C) 🔧 MODIFY** - I want to provide my own improved version
+**D) ❓ EXPLAIN** - Tell me more about why this improvement is needed
+**R) 🔄 REMOVE** - Remove this log completely
+
+**Type A, B, C, D, or R to proceed with this log statement.**
+```
+
+**SPECIAL CASE - TEST/DUMMY LOGS**:
+For logs that are clearly test/placeholder content (containing "test", "dummy", "TODO", etc.):
+- **RECOMMENDED ACTION**: Complete removal
+- **NO QUALITY IMPROVEMENT RATING**: Not applicable for removal cases
+- **RATIONALE**: Test artifacts should not be committed to production code
+
+## Expected Output
+
+Create an HTML report: `pre_staging_log_analysis_summary.html` that contains all log fixes which have been done.
+
+**Location**: Save to the `logAnalysisOutput/` directory.
+
+## Post-Analysis Actions
+
+**COMPLETION ACTIONS**: After completing the log analysis and generating the HTML report, automatically allow staging to proceed.
+
+**AUTOMATIC STAGING UNBLOCKING**: 
+```bash
+# Create completion flag to allow staging
+touch pre-staging-analysis-completed.flag
+
+# Clean up trigger files
+rm -f .git-pre-staging-logs-detected.trigger
+```
+
+Please proceed with the analysis focusing specifically on **logging statements in modified Java files** in the working directory and generating the comprehensive HTML report as specified above.
